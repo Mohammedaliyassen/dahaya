@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أداة تنظيم سباق الضاحية</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <!-- PWA Manifest and Theme Color -->
+    <meta name="theme-color" content="#1a237e">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/1a237e/ffffff?text=🏃">
+    <style>
+        :root {
+            --primary-color: #1a237e; --secondary-color: #1e88e5; --accent-color: #43a047;
+            --danger-color: #d32f2f; --light-bg: #f0f2f5; --white-bg: #ffffff; --text-color: #333;
+        }
+        body { font-family: 'Cairo', sans-serif; background-color: var(--light-bg); color: var(--text-color); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        h1, h2, h3 { color: var(--primary-color); text-shadow: 1px 1px 2px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 10px; }
+        h1 { font-size: 2.2rem; } h2 { font-size: 1.8rem; }
+        .container { background-color: var(--white-bg); padding: 20px; border-radius: 12px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); width: 100%; max-width: 800px; margin-bottom: 20px; border-top: 5px solid var(--secondary-color); }
+        .input-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: center; }
+        .input-group > input[list="masterParticipantList"], .input-group > input[type="text"] { flex: 2 1 180px; }
+        .input-group > input[type="number"] { flex: 1 1 90px; } .input-group > select { flex: 1 1 120px; }
+        input[type="text"], input[type="number"], select { padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; font-family: 'Cairo', sans-serif; background-color: white; min-width: 90px; }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus { outline: none; border-color: var(--secondary-color); box-shadow: 0 0 5px rgba(30, 136, 229, 0.5); }
+        #staffOfficerDiv { display: none; align-items: center; gap: 5px; flex-basis: 100%; }
+        .time-zones-container { width: 100%; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+        .time-zone-row { display: flex; flex-direction: column; gap: 5px; background-color: #fafafa; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
+        .time-zone-row label { font-weight: bold; } .time-zone-inputs { display: flex; gap: 10px; align-items: center; }
+        .time-zone-inputs input { width: 100px; } .time-zone-inputs span { color: #555; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.3s ease; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .btn-add { background-color: var(--accent-color); color: white; }
+        .btn-start { background: linear-gradient(45deg, var(--secondary-color), #42a5f5); color: white; width: 100%; font-size: 22px; padding: 15px; margin-top: 15px; }
+        .btn-start:disabled { background: #bdbdbd; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-pdf { background-color: var(--danger-color); color: white; margin-top: 10px; }
+        .btn-save { background-color: var(--primary-color); color: white; margin-top: 10px; }
+        .btn-action { background-color: #607d8b; color: white; margin: 5px; }
+        .btn-icon { background: none; border: none; cursor: pointer; padding: 5px; font-size: 1.2rem; }
+        #participantsList { list-style-type: none; padding: 0; max-height: 250px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; }
+        #participantsList li { background-color: #e3f2fd; padding: 12px; margin-bottom: 8px; border-radius: 5px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; font-size: 1.1rem; gap: 10px; }
+        #participantsList .participant-info { flex-grow: 1; }
+        #participantsList .participant-actions { display: flex; gap: 5px; }
+        #participantsList .bib { font-weight: bold; font-size: 18px; color: var(--primary-color); background-color: #bbdefb; padding: 4px 10px; border-radius: 15px; }
+        #raceSection, #groupManagementSection, #resultsSection { display: none; }
+        #timer { font-size: clamp(2.5rem, 15vw, 4rem); font-weight: bold; text-align: center; margin-bottom: 20px; background-color: #111; color: #lime; padding: 20px; border-radius: 10px; font-family: 'monospace'; letter-spacing: 2px; }
+        #runnersGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+        .runner-btn { padding: 10px; font-weight: bold; background-color: var(--secondary-color); color: white; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s ease-in-out; text-align: center; }
+        .runner-btn .bib-lg { font-size: 2rem; }
+        .runner-btn .name-sm { font-size: 0.8rem; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .runner-btn:hover { transform: scale(1.05); } .runner-btn:disabled { background-color: var(--accent-color); color: white; cursor: not-allowed; transform: none; opacity: 0.8; }
+        .table-container { overflow-x: auto; }
+        #resultsTable, #groupMembersTable, #searchResultsTable { width: 100%; border-collapse: collapse; margin-top: 20px; min-width: 600px; }
+        #resultsTable th, #resultsTable td, #groupMembersTable th, #groupMembersTable td, #searchResultsTable th, #searchResultsTable td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        #resultsTable th, #groupMembersTable th, #searchResultsTable th { background-color: var(--primary-color); color: white; font-size: 16px; }
+        #resultsTable tr:nth-child(even), #groupMembersTable tr:nth-child(even), #searchResultsTable tr:nth-child(even) { background-color: #f2f2f2; }
+        .time-breaker { background-color: #e8f5e9 !important; font-weight: bold; }
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+        #savedRacesList, #groupsList { list-style-type: none; padding: 0; }
+        #savedRacesList li, #groupsList li { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;}
+        #searchResults { margin-top: 20px; } #searchResults h3 { border-bottom: 2px solid var(--primary-color); padding-bottom: 5px; }
+        .notification { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 15px 25px; border-radius: 8px; color: white; font-size: 16px; font-weight: bold; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.5s, visibility 0.5s, bottom 0.5s; width: 90%; max-width: 500px; text-align: center; }
+        .notification.show { opacity: 1; visibility: visible; bottom: 30px; }
+        .notification.success { background-color: var(--accent-color); }
+        .notification.error { background-color: var(--danger-color); }
+        .modal-overlay { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center; padding: 10px; }
+        .modal-box { background-color: #fff; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; text-align: center; }
+        .modal-box h3 { margin-top: 0; }
+        .modal-box p { margin-bottom: 20px; }
+        .modal-box input { width: calc(100% - 24px); margin-bottom: 15px; }
+        .modal-actions { display: flex; justify-content: center; gap: 15px; }
+        
+        @media (max-width: 768px) {
+            body { padding: 5px; }
+            .container { padding: 15px; }
+            h1 { font-size: 1.8rem; } h2 { font-size: 1.5rem; }
+            .input-group { flex-direction: column; align-items: stretch; }
+            .input-group > .btn-add { width: 100%; }
+            .actions { justify-content: center; }
+            #participantsList li, #savedRacesList li, #groupsList li { flex-direction: column; align-items: flex-start; gap: 15px; }
+            #participantsList .participant-actions { width: 100%; justify-content: space-between; }
+            .time-zones-container { grid-template-columns: 1fr; }
+            .modal-box { width: 95%; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-color);"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        الضاحية
+    </h1>
+    <datalist id="masterParticipantList"></datalist>
+    <div id="notificationPopup" class="notification"></div>
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="modalTitle"></h3>
+            <div id="modalContent"></div>
+            <div id="modalActions" class="modal-actions"></div>
+        </div>
+    </div>
+
+    <!-- Race Setup Section -->
+    <div id="setupSection" class="container">
+        <div class="input-group">
+            <h2>📝 إعداد سباق جديد</h2>
+            <button class="btn btn-action" style="margin-right: auto;" onclick="showView('groupManagementSection')">👥 إدارة المجموعات</button>
+        </div>
+        <div class="input-group">
+            <label for="groupSelect" style="font-weight:bold;">تحميل مجموعة:</label>
+            <select id="groupSelect"><option value="">-- اختر مجموعة --</option></select>
+            <button class="btn btn-add" onclick="loadGroupToRace()">تحميل</button>
+        </div>
+        <hr>
+        <div id="registrationSection">
+            <div class="input-group">
+                <select id="participantRank">
+                    <option value="جندي">جندي</option><option value="عريف">عريف</option><option value="رقيب">رقيب</option><option value="رقيب أول">رقيب أول</option><option value="مساعد">مساعد</option><option value="مساعد أول">مساعد أول</option><option value="ملازم">ملازم</option><option value="ملازم أول">ملازم أول</option><option value="نقيب">نقيب</option><option value="رائد">رائد</option><option value="مقدم">مقدم</option><option value="عقيد">عقيد</option><option value="عميد">عميد</option><option value="لواء">لواء</option><option value="فريق">فريق</option><option value="فريق أول">فريق أول</option><option value="مشير">مشير</option>
+                </select>
+                <input type="text" id="participantName" placeholder="اختر أو أدخل اسم المشارك..." list="masterParticipantList">
+                <input type="number" id="participantBib" placeholder="الرقم">
+                 <select id="participantCompany">
+                    <option value="س1">س1</option><option value="س2">س2</option><option value="س3">س3</option><option value="سرية القيادة">سرية القيادة</option>
+                </select>
+                <div id="staffOfficerDiv">
+                    <input type="checkbox" id="staffOfficerCheckbox" style="width: 20px; height: 20px;"><label for="staffOfficerCheckbox">أركان حرب (أ ح)</label>
+                </div>
+                <button class="btn btn-add" onclick="addParticipant()">➕ إضافة</button>
+            </div>
+            <hr>
+            <h3>قائمة المشاركين: (<span id="participantCount">0</span>)</h3>
+            <ul id="participantsList"></ul>
+        </div>
+        <h3>⏱️ تحديد أزمنة السباق</h3>
+        <div class="time-zones-container">
+            <div class="time-zone-row"><label>زمن أول</label><div class="time-zone-inputs"><input type="text" id="time1_from" value="10:00" placeholder="mm:ss"><span>إلى</span><input type="text" id="time1_to" value="11:00" placeholder="mm:ss"></div></div>
+            <div class="time-zone-row"><label>زمن ثاني</label><div class="time-zone-inputs"><input type="text" id="time2_from" value="11:01" placeholder="mm:ss"><span>إلى</span><input type="text" id="time2_to" value="13:00" placeholder="mm:ss"></div></div>
+            <div class="time-zone-row"><label>زمن ثالث</label><div class="time-zone-inputs"><input type="text" id="time3_from" value="13:01" placeholder="mm:ss"><span>إلى</span><input type="text" id="time3_to" value="15:00" placeholder="mm:ss"></div></div>
+            <div class="time-zone-row"><label>زمن رابع</label><div class="time-zone-inputs"><input type="text" id="time4_from" value="15:01" placeholder="mm:ss"><span>إلى</span><input type="text" id="time4_to" value="17:00" placeholder="mm:ss"></div></div>
+        </div>
+        <button id="startRaceBtn" class="btn btn-start" onclick="startRace()" disabled>🚀 ابدأ السباق!</button>
+    </div>
+    
+    <!-- History Section -->
+    <div id="historySection" class="container">
+        <h2>📚 سجل السباقات المحفوظة</h2>
+        <div class="actions">
+            <button class="btn btn-action" onclick="document.getElementById('importFile').click()">📤 استيراد سجل</button>
+            <input type="file" id="importFile" style="display: none;" onchange="importHistory(event)">
+            <button class="btn btn-action" onclick="exportHistory()">📥 تصدير السجل</button>
+        </div>
+        <div class="input-group">
+            <input type="text" id="searchInput" placeholder="🔍 ابحث بالاسم أو الرقم...">
+        </div>
+        <div id="searchResults" class="table-container"></div>
+        <hr>
+        <h3>السباقات السابقة:</h3>
+        <ul id="savedRacesList"></ul>
+        <div id="historyResultsViewer" style="margin-top: 20px;"></div>
+    </div>
+
+    <!-- Group Management Section -->
+    <div id="groupManagementSection" class="container">
+        <button class="btn btn-action" onclick="showView('setupSection')">🔙 العودة للسباق</button>
+        <h2>👥 إدارة المجموعات</h2>
+        <div class="actions">
+            <button class="btn btn-action" onclick="document.getElementById('importGroupsFile').click()">📤 استيراد مجموعات</button>
+            <input type="file" id="importGroupsFile" style="display: none;" onchange="importGroups(event)">
+            <button class="btn btn-action" onclick="exportGroups()">📥 تصدير المجموعات</button>
+        </div>
+        <div class="input-group">
+            <input type="text" id="newGroupName" placeholder="اسم المجموعة الجديدة...">
+            <button class="btn btn-add" onclick="createGroup()">➕ إنشاء مجموعة</button>
+        </div>
+        <hr>
+        <h3>المجموعات الحالية</h3>
+        <ul id="groupsList"></ul>
+        <div id="groupEditor" style="display:none;">
+             <h3 id="editingGroupName"></h3>
+             <div class="input-group">
+                <select id="groupParticipantRank">
+                    <option value="جندي">جندي</option><option value="عريف">عريف</option><option value="رقيب">رقيب</option><option value="رقيب أول">رقيب أول</option><option value="مساعد">مساعد</option><option value="مساعد أول">مساعد أول</option><option value="ملازم">ملازم</option><option value="ملازم أول">ملازم أول</option><option value="نقيب">نقيب</option><option value="رائد">رائد</option><option value="مقدم">مقدم</option><option value="عقيد">عقيد</option><option value="عميد">عميد</option><option value="لواء">لواء</option><option value="فريق">فريق</option><option value="فريق أول">فريق أول</option><option value="مشير">مشير</option>
+                </select>
+                <input type="text" id="groupParticipantName" placeholder="اسم الفرد...">
+                <input type="number" id="groupParticipantBib" placeholder="الرقم">
+                <select id="groupParticipantCompany">
+                    <option value="س1">س1</option><option value="س2">س2</option><option value="س3">س3</option><option value="سرية القيادة">سرية القيادة</option>
+                </select>
+                <button class="btn btn-add" onclick="addParticipantToGroup()">➕ إضافة للمجموعة</button>
+             </div>
+             <div class="table-container">
+                <table id="groupMembersTable">
+                    <thead><tr><th>الرقم</th><th>الاسم</th><th>الرتبة</th><th>السرية</th><th>حذف</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+             </div>
+        </div>
+    </div>
+
+    <!-- Race Live Section -->
+    <div id="raceSection" class="container">
+        <h2>السباق قيد التنفيذ</h2>
+        <div id="timer">00:00:00.000</div>
+        <h3>اضغط على رقم المتسابق عند وصوله:</h3>
+        <div id="runnersGrid"></div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultsSection" class="container">
+        <h2>🏆 النتائج النهائية للسباق الحالي</h2>
+        <div class="table-container">
+            <table id="resultsTable">
+                <thead><tr><th>المركز</th><th>الرقم</th><th>السرية</th><th>الرتبة</th><th>الاسم</th><th>الوقت</th><th>الزمن المحقق</th><th>ملاحظات</th></tr></thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+        <div id="raceEndActions" style="display: none;">
+            <button class="btn btn-save" onclick="handleSaveRace()">💾 حفظ السباق في السجل</button>
+        </div>
+    </div>
+
+    <script>
+        // Global State
+        let currentParticipants = [];
+        let raceHistory = [];
+        let participantGroups = {};
+        let masterParticipantList = new Map();
+        let raceStartTime, timerInterval, timeZones = [];
+        let currentlyEditingGroup = null;
+        let notificationTimeout;
+
+        // DOM Elements
+        const allViews = document.querySelectorAll('.container');
+        const setupSection = document.getElementById('setupSection');
+        const historySection = document.getElementById('historySection');
+        const raceSection = document.getElementById('raceSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const groupManagementSection = document.getElementById('groupManagementSection');
+        const startRaceBtn = document.getElementById('startRaceBtn');
+        const participantCount = document.getElementById('participantCount');
+        const participantsListEl = document.getElementById('participantsList');
+        const runnersGrid = document.getElementById('runnersGrid');
+        const resultsBody = document.getElementById('resultsBody');
+        const timerDisplay = document.getElementById('timer');
+        const nameInput = document.getElementById('participantName');
+        const bibInput = document.getElementById('participantBib');
+        const rankInput = document.getElementById('participantRank');
+        const companyInput = document.getElementById('participantCompany');
+        const staffOfficerDiv = document.getElementById('staffOfficerDiv');
+        const staffOfficerCheckbox = document.getElementById('staffOfficerCheckbox');
+        const savedRacesList = document.getElementById('savedRacesList');
+        const searchInput = document.getElementById('searchInput');
+        const searchResultsDiv = document.getElementById('searchResults');
+        const historyResultsViewer = document.getElementById('historyResultsViewer');
+        const raceEndActions = document.getElementById('raceEndActions');
+        const masterParticipantListEl = document.getElementById('masterParticipantList');
+        const groupSelect = document.getElementById('groupSelect');
+        const groupsListEl = document.getElementById('groupsList');
+        const groupEditor = document.getElementById('groupEditor');
+        const editingGroupNameEl = document.getElementById('editingGroupName');
+        const groupMembersTableBody = document.querySelector('#groupMembersTable tbody');
+        const notificationPopup = document.getElementById('notificationPopup');
+        const customModal = document.getElementById('customModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalContent = document.getElementById('modalContent');
+        const modalActions = document.getElementById('modalActions');
+        
+        const seniorRanks = ["رائد", "مقدم", "عقيد", "عميد", "لواء", "فريق", "فريق أول", "مشير"];
+
+        // --- App Initialization & PWA ---
+        document.addEventListener('DOMContentLoaded', () => {
+            showView('setupSection');
+            toggleStaffOfficerCheckbox();
+            loadFromLocalStorage();
+            registerPWA();
+        });
+
+        function registerPWA() {
+            // 1. Register Manifest
+            const manifest = {
+                "name": "أداة تنظيم سباق الضاحية",
+                "short_name": "الضاحية",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#f0f2f5",
+                "theme_color": "#1a237e",
+                "description": "أداة لتنظيم سباقات الضاحية وتسجيل النتائج.",
+                "icons": [
+                    { "src": "https://placehold.co/192x192/1a237e/ffffff?text=🏃", "sizes": "192x192", "type": "image/png" },
+                    { "src": "https://placehold.co/512x512/1a237e/ffffff?text=🏃", "sizes": "512x512", "type": "image/png" }
+                ]
+            };
+            const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(manifestBlob);
+            document.querySelector('head').insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestURL}">`);
+
+            // 2. Register Service Worker
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    const CACHE_NAME = 'race-timer-cache-v1';
+                    const urlsToCache = [
+                        '/',
+                        'https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap',
+                        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+                        'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
+                    ];
+
+                    self.addEventListener('install', event => {
+                        event.waitUntil(
+                            caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+                        );
+                    });
+
+                    self.addEventListener('fetch', event => {
+                        event.respondWith(
+                            caches.match(event.request).then(response => {
+                                return response || fetch(event.request);
+                            })
+                        );
+                    });
+                `;
+                const swBlob = new Blob([swCode], {type: 'application/javascript'});
+                const swURL = URL.createObjectURL(swBlob);
+                navigator.serviceWorker.register(swURL)
+                    .then(reg => console.log('Service Worker Registered'))
+                    .catch(err => console.log('Service Worker Registration Error:', err));
+            }
+        }
+
+        function showView(viewId) {
+            allViews.forEach(view => view.style.display = 'none');
+            if (viewId === 'setupSection') {
+                 document.getElementById('setupSection').style.display = 'block';
+                 document.getElementById('historySection').style.display = 'block';
+            } else {
+                 document.getElementById(viewId).style.display = 'block';
+            }
+        }
+
+        // --- Event Listeners ---
+        rankInput.addEventListener('change', toggleStaffOfficerCheckbox);
+        bibInput.addEventListener('keyup', e => e.key === 'Enter' && addParticipant());
+        searchInput.addEventListener('input', searchParticipants);
+        nameInput.addEventListener('input', (e) => {
+            const selected = masterParticipantList.get(e.target.value);
+            if (selected) {
+                bibInput.value = selected.bib;
+                rankInput.value = selected.rank.replace(' أ ح', '');
+                companyInput.value = selected.company || 'س1';
+                staffOfficerCheckbox.checked = selected.rank.includes(' أ ح');
+                toggleStaffOfficerCheckbox();
+            }
+        });
+
+        // --- Participant & Race Setup ---
+        function toggleStaffOfficerCheckbox() {
+            staffOfficerDiv.style.display = seniorRanks.includes(rankInput.value) ? 'flex' : 'none';
+            if (staffOfficerDiv.style.display === 'none') staffOfficerCheckbox.checked = false;
+        }
+
+        function addParticipant() {
+            const name = nameInput.value.trim();
+            const bibValue = bibInput.value.trim();
+            let rank = rankInput.value;
+            const company = companyInput.value;
+
+            if (!name || !bibValue) return showNotification('الرجاء إدخال اسم ورقم المشارك.', 'error');
+            const bib = parseInt(bibValue);
+            if (currentParticipants.some(p => p.bib === bib)) return showNotification('هذا الرقم تم استخدامه بالفعل في السباق الحالي.', 'error');
+            if (staffOfficerCheckbox.checked && staffOfficerDiv.style.display !== 'none') rank += ' أ ح';
+
+            const participant = { bib, name, rank, company, finishTime: null, timeCategory: '', notes: '' };
+            currentParticipants.push(participant);
+            renderParticipantList();
+            nameInput.value = ''; bibInput.value = ''; rankInput.value = 'جندي'; companyInput.value = 'س1';
+            toggleStaffOfficerCheckbox(); nameInput.focus();
+        }
+
+        function deleteParticipantFromCurrentRace(bib) {
+            showConfirmation('هل أنت متأكد من حذف هذا المشارك من السباق الحالي؟', () => {
+                currentParticipants = currentParticipants.filter(p => p.bib !== bib);
+                renderParticipantList();
+            });
+        }
+
+        function addNoteToParticipant(bib) {
+            const participant = currentParticipants.find(p => p.bib === bib);
+            if (!participant) return;
+            showPrompt('أدخل ملاحظة للمتسابق:', participant.notes, (note) => {
+                if (note !== null) {
+                    participant.notes = note;
+                    renderParticipantList();
+                    showNotification('تم حفظ الملاحظة.', 'success');
+                }
+            });
+        }
+
+        function renderParticipantList() {
+            participantsListEl.innerHTML = '';
+            currentParticipants.forEach(p => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="participant-info">${p.company} / ${p.rank} / ${p.name}</div>
+                    <div class="participant-actions">
+                        <span class="bib">#${p.bib}</span>
+                        <button class="btn-icon" title="إضافة ملاحظة" onclick="addNoteToParticipant(${p.bib})">📝</button>
+                        <button class="btn-icon" title="حذف المشارك" onclick="deleteParticipantFromCurrentRace(${p.bib})">🗑️</button>
+                    </div>`;
+                participantsListEl.appendChild(li);
+            });
+            participantCount.textContent = currentParticipants.length;
+            startRaceBtn.disabled = currentParticipants.length === 0;
+        }
+
+        // --- Race Execution ---
+        function timeToMillis(timeValue) {
+            if (!timeValue || !timeValue.includes(':')) return 0;
+            const parts = timeValue.split(':');
+            return ((parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0)) * 1000;
+        }
+
+        function parseTimeZones() {
+            timeZones = [];
+            const zoneNames = ["زمن أول", "زمن ثاني", "زمن ثالث", "زمن رابع"];
+            for (let i = 1; i <= 4; i++) {
+                const from = timeToMillis(document.getElementById(`time${i}_from`).value);
+                const to = timeToMillis(document.getElementById(`time${i}_to`).value);
+                if (to >= from) timeZones.push({ from, to, name: zoneNames[i - 1] });
+            }
+        }
+
+        function startRace() {
+            if (currentParticipants.length === 0) return;
+            parseTimeZones();
+            showView('raceSection');
+            runnersGrid.innerHTML = '';
+            currentParticipants.sort((a, b) => a.bib - b.bib);
+            currentParticipants.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = 'runner-btn';
+                btn.id = `runner-${p.bib}`;
+                btn.innerHTML = `<div class="bib-lg">${p.bib}</div><div class="name-sm">${p.name}</div>`;
+                btn.onclick = () => recordFinish(p.bib);
+                runnersGrid.appendChild(btn);
+            });
+            raceStartTime = Date.now();
+            timerInterval = setInterval(() => timerDisplay.textContent = formatTimeWithMillis(Date.now() - raceStartTime), 10);
+        }
+
+        function recordFinish(bib) {
+            const finisher = currentParticipants.find(p => p.bib === bib);
+            if (finisher && !finisher.finishTime) {
+                finisher.finishTime = Date.now() - raceStartTime;
+                finisher.timeCategory = getFinisherCategory(finisher.finishTime);
+                document.getElementById(`runner-${bib}`).disabled = true;
+                renderResultsTable(currentParticipants, resultsBody);
+            }
+        }
+
+        function getFinisherCategory(finishTime) {
+            if (timeZones.length === 0) return '';
+            if (finishTime < timeZones[0].from) return 'كاسر زمن';
+            for (const zone of timeZones) {
+                if (finishTime >= zone.from && finishTime <= zone.to) return zone.name;
+            }
+            if (finishTime > timeZones[timeZones.length - 1].to) return 'خارج الزمن';
+            return 'بين الأزمنة';
+        }
+
+        function renderResultsTable(participantsData, tableBodyElement) {
+            tableBodyElement.innerHTML = '';
+            const finishers = participantsData.filter(p => p.finishTime !== null).sort((a, b) => a.finishTime - b.finishTime);
+            finishers.forEach((finisher, index) => {
+                const row = tableBodyElement.insertRow();
+                const isTimeBreaker = finisher.timeCategory === 'كاسر زمن';
+                if (isTimeBreaker) row.classList.add('time-breaker');
+                let rankDisplay = index + 1;
+                if (index === 0) rankDisplay = '🥇 ' + rankDisplay;
+                if (index === 1) rankDisplay = '🥈 ' + rankDisplay;
+                if (index === 2) rankDisplay = '🥉 ' + rankDisplay;
+                if (isTimeBreaker) rankDisplay = '⭐ ' + rankDisplay;
+                row.innerHTML = `<td>${rankDisplay}</td><td>${finisher.bib}</td><td>${finisher.company}</td><td>${finisher.rank}</td><td>${finisher.name}</td><td>${formatResultTime(finisher.finishTime)}</td><td>${finisher.timeCategory}</td><td>${finisher.notes || ''}</td>`;
+            });
+            if (tableBodyElement.id === 'resultsBody' && finishers.length === currentParticipants.length && currentParticipants.length > 0) {
+                clearInterval(timerInterval);
+                timerDisplay.style.color = '#4caf50';
+                raceEndActions.style.display = 'block';
+                showView('resultsSection');
+            }
+        }
+
+        // --- History, Groups & Storage Logic ---
+        function handleSaveRace() {
+            showPrompt('أدخل اسمًا لهذا السباق:', new Date().toLocaleDateString('ar-EG'), (raceName) => {
+                if (!raceName) return showNotification('يجب إدخال اسم للسباق.', 'error');
+                const raceData = { name: raceName, date: new Date().toISOString(), participants: currentParticipants };
+                raceHistory.push(raceData);
+                saveToLocalStorage();
+                showNotification("تم حفظ السباق بنجاح!", 'success');
+                resetForNewRace();
+            });
+        }
+        
+        function resetForNewRace() {
+            currentParticipants = [];
+            renderParticipantList();
+            resultsBody.innerHTML = '';
+            raceEndActions.style.display = 'none';
+            showView('setupSection');
+        }
+
+        function loadFromLocalStorage() {
+            const savedHistory = localStorage.getItem('raceHistory');
+            const savedGroups = localStorage.getItem('participantGroups');
+            if (savedHistory) raceHistory = JSON.parse(savedHistory);
+            if (savedGroups) participantGroups = JSON.parse(savedGroups);
+            displayHistoryList();
+            updateMasterParticipantList();
+            renderGroupsList();
+        }
+        
+        function saveToLocalStorage() {
+            localStorage.setItem('raceHistory', JSON.stringify(raceHistory));
+            localStorage.setItem('participantGroups', JSON.stringify(participantGroups));
+            updateMasterParticipantList();
+            renderGroupsList();
+        }
+
+        function updateMasterParticipantList() {
+            masterParticipantList.clear();
+            const allParticipants = [...raceHistory.flatMap(r => r.participants), ...Object.values(participantGroups).flat()];
+            allParticipants.forEach(p => masterParticipantList.set(p.name, p));
+            masterParticipantListEl.innerHTML = '';
+            for (const name of masterParticipantList.keys()) {
+                const option = document.createElement('option');
+                option.value = name;
+                masterParticipantListEl.appendChild(option);
+            }
+        }
+
+        function displayHistoryList() {
+            savedRacesList.innerHTML = '';
+            raceHistory.forEach((race, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span><strong>${race.name}</strong> - ${new Date(race.date).toLocaleDateString('ar-EG')}</span>`;
+                const actionsDiv = document.createElement('div');
+                const viewBtn = document.createElement('button');
+                viewBtn.textContent = 'عرض'; viewBtn.className = 'btn btn-action';
+                viewBtn.onclick = () => viewHistoricRace(index);
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '🗑️'; deleteBtn.className = 'btn btn-icon btn-pdf';
+                deleteBtn.onclick = () => deleteHistoricRace(index);
+                actionsDiv.append(viewBtn, deleteBtn);
+                li.appendChild(actionsDiv);
+                savedRacesList.appendChild(li);
+            });
+        }
+
+        function deleteHistoricRace(index) {
+            showConfirmation(`هل أنت متأكد من حذف سباق "${raceHistory[index].name}"؟`, () => {
+                raceHistory.splice(index, 1);
+                saveToLocalStorage();
+                displayHistoryList();
+                historyResultsViewer.innerHTML = '';
+            });
+        }
+
+        function viewHistoricRace(index) {
+            const race = raceHistory[index];
+            historyResultsViewer.innerHTML = `<h3>نتائج: ${race.name}</h3>`;
+            const tableContainer = document.createElement('div');
+            tableContainer.className = 'table-container';
+            const table = document.createElement('table');
+            table.innerHTML = `<thead><tr><th>المركز</th><th>الرقم</th><th>السرية</th><th>الرتبة</th><th>الاسم</th><th>الوقت</th><th>الزمن المحقق</th><th>ملاحظات</th></tr></thead><tbody></tbody>`;
+            tableContainer.appendChild(table);
+            historyResultsViewer.appendChild(tableContainer);
+            renderResultsTable(race.participants, table.querySelector('tbody'));
+            const pdfBtn = document.createElement('button');
+            pdfBtn.textContent = 'تصدير هذا السباق (PDF)';
+            pdfBtn.className = 'btn btn-pdf';
+            pdfBtn.onclick = () => exportSingleRaceToPDF(race);
+            historyResultsViewer.appendChild(pdfBtn);
+        }
+
+        function exportHistory() {
+            if (raceHistory.length === 0 && Object.keys(participantGroups).length === 0) return showNotification("لا يوجد سجل لتصديره.", 'error');
+            const dataToExport = { raceHistory, participantGroups };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "full_race_data.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function importHistory(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    showConfirmation('سيتم دمج البيانات المستوردة مع الحالية. هل تريد المتابعة؟', () => {
+                        if (Array.isArray(importedData.raceHistory)) raceHistory.push(...importedData.raceHistory);
+                        if (typeof importedData.participantGroups === 'object') Object.assign(participantGroups, importedData.participantGroups);
+                        saveToLocalStorage();
+                        displayHistoryList();
+                        showNotification("تم استيراد السجل بنجاح!", 'success');
+                    });
+                } catch (err) { showNotification("ملف غير صالح أو تالف.", 'error'); }
+            };
+            reader.readAsText(file);
+        }
+
+        function searchParticipants() {
+            const query = searchInput.value.trim().toLowerCase();
+            searchResultsDiv.innerHTML = '';
+            if (!query) return;
+            const results = [];
+            raceHistory.forEach(race => {
+                race.participants.forEach(p => {
+                    if (String(p.bib).includes(query) || p.name.toLowerCase().includes(query)) {
+                        results.push({ raceName: race.name, participant: p });
+                    }
+                });
+            });
+            displaySearchResults(results, query);
+        }
+
+        function displaySearchResults(results, query) {
+            searchResultsDiv.innerHTML = `<h3>نتائج البحث عن "${query}": (${results.length})</h3>`;
+            if (results.length === 0) {
+                searchResultsDiv.innerHTML += "<p>لم يتم العثور على نتائج.</p>"; return;
+            }
+            const table = document.createElement('table');
+            table.id = 'searchResultsTable';
+            table.innerHTML = `<thead><tr><th>اسم السباق</th><th>الرقم</th><th>السرية</th><th>الاسم</th><th>الوقت</th><th>الزمن المحقق</th></tr></thead><tbody></tbody>`;
+            const tbody = table.querySelector('tbody');
+            results.forEach(res => {
+                const p = res.participant;
+                tbody.innerHTML += `<tr><td>${res.raceName}</td><td>${p.bib}</td><td>${p.company}</td><td>${p.name}</td><td>${formatResultTime(p.finishTime)}</td><td>${p.timeCategory}</td></tr>`;
+            });
+            searchResultsDiv.appendChild(table);
+        }
+        
+        // --- Group Management ---
+        function createGroup() {
+            const groupName = document.getElementById('newGroupName').value.trim();
+            if (!groupName) return showNotification('الرجاء إدخال اسم للمجموعة.', 'error');
+            if (participantGroups[groupName]) return showNotification('هذه المجموعة موجودة بالفعل.', 'error');
+            participantGroups[groupName] = [];
+            saveToLocalStorage();
+            document.getElementById('newGroupName').value = '';
+        }
+
+        function renderGroupsList() {
+            groupsListEl.innerHTML = '';
+            groupSelect.innerHTML = '<option value="">-- اختر مجموعة --</option>';
+            for (const groupName in participantGroups) {
+                const li = document.createElement('li');
+                li.innerHTML = `<span><strong>${groupName}</strong> (${participantGroups[groupName].length} فرد)</span>`;
+                const actionsDiv = document.createElement('div');
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'إدارة'; editBtn.className = 'btn btn-action';
+                editBtn.onclick = () => manageGroup(groupName);
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '🗑️'; deleteBtn.className = 'btn btn-icon btn-pdf';
+                deleteBtn.onclick = () => deleteGroup(groupName);
+                actionsDiv.append(editBtn, deleteBtn);
+                li.appendChild(actionsDiv);
+                groupsListEl.appendChild(li);
+
+                const option = document.createElement('option');
+                option.value = groupName;
+                option.textContent = groupName;
+                groupSelect.appendChild(option);
+            }
+        }
+
+        function deleteGroup(groupName) {
+            showConfirmation(`هل أنت متأكد من حذف مجموعة "${groupName}"؟`, () => {
+                delete participantGroups[groupName];
+                saveToLocalStorage();
+                groupEditor.style.display = 'none';
+            });
+        }
+
+        function manageGroup(groupName) {
+            currentlyEditingGroup = groupName;
+            editingGroupNameEl.textContent = `إدارة مجموعة: ${groupName}`;
+            groupEditor.style.display = 'block';
+            renderGroupMembersTable();
+        }
+
+        function addParticipantToGroup() {
+            if (!currentlyEditingGroup) return;
+            const name = document.getElementById('groupParticipantName').value.trim();
+            const bib = document.getElementById('groupParticipantBib').value.trim();
+            const rank = document.getElementById('groupParticipantRank').value;
+            const company = document.getElementById('groupParticipantCompany').value;
+            if (!name || !bib) return showNotification('الرجاء إدخال اسم ورقم الفرد.', 'error');
+            if (participantGroups[currentlyEditingGroup].some(p => p.bib == bib)) return showNotification('هذا الرقم مستخدم بالفعل في المجموعة.', 'error');
+            
+            participantGroups[currentlyEditingGroup].push({ bib: parseInt(bib), name, rank, company });
+            saveToLocalStorage();
+            renderGroupMembersTable();
+            document.getElementById('groupParticipantName').value = '';
+            document.getElementById('groupParticipantBib').value = '';
+        }
+        
+        function deleteParticipantFromGroup(bib) {
+            if (!currentlyEditingGroup) return;
+            showConfirmation('هل أنت متأكد من حذف هذا الفرد من المجموعة؟', () => {
+                participantGroups[currentlyEditingGroup] = participantGroups[currentlyEditingGroup].filter(p => p.bib != bib);
+                saveToLocalStorage();
+                renderGroupMembersTable();
+            });
+        }
+
+        function renderGroupMembersTable() {
+            groupMembersTableBody.innerHTML = '';
+            if (!currentlyEditingGroup || !participantGroups[currentlyEditingGroup]) return;
+            participantGroups[currentlyEditingGroup].forEach(p => {
+                const row = groupMembersTableBody.insertRow();
+                row.innerHTML = `<td>${p.bib}</td><td>${p.name}</td><td>${p.rank}</td><td>${p.company}</td><td><button class="btn-icon" onclick="deleteParticipantFromGroup(${p.bib})">🗑️</button></td>`;
+            });
+        }
+
+        function loadGroupToRace() {
+            const groupName = groupSelect.value;
+            if (!groupName) return;
+            const groupMembers = participantGroups[groupName];
+            if (!groupMembers) return;
+            showConfirmation(`سيتم إضافة ${groupMembers.length} فرد من مجموعة "${groupName}" إلى السباق الحالي. هل تريد المتابعة؟`, () => {
+                currentParticipants = [...groupMembers.map(p => ({...p, finishTime: null, timeCategory: '', notes: ''}))];
+                renderParticipantList();
+                showNotification(`تم تحميل مجموعة "${groupName}" بنجاح.`, 'success');
+            });
+        }
+        
+        function exportGroups() {
+            if (Object.keys(participantGroups).length === 0) return showNotification("لا يوجد مجموعات لتصديرها.", 'error');
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(participantGroups));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "participant_groups.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function importGroups(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedGroups = JSON.parse(e.target.result);
+                    showConfirmation('سيتم دمج المجموعات المستوردة مع الحالية. هل تريد المتابعة؟', () => {
+                        Object.assign(participantGroups, importedGroups);
+                        saveToLocalStorage();
+                        renderGroupsList();
+                        showNotification("تم استيراد المجموعات بنجاح!", 'success');
+                    });
+                } catch (err) { showNotification("ملف غير صالح أو تالف.", 'error'); }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- PDF Export ---
+        async function exportSingleRaceToPDF(race) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            try {
+                const fontUrl = 'https://rawcdn.githack.com/MrRio/jsPDF/master/test/reference/Amiri-Regular.ttf';
+                const fontResponse = await fetch(fontUrl);
+                const font = await fontResponse.arrayBuffer();
+                const fontInBase64 = arrayBufferToBase64(font);
+                doc.addFileToVFS("Amiri-Regular.ttf", fontInBase64);
+                doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+                doc.setFont("Amiri");
+                generatePdfContent(doc, race);
+            } catch (error) {
+                console.error("Could not load Amiri font, using fallback.", error);
+                showNotification("حدث خطأ أثناء تحميل الخط العربي للـ PDF.", 'error');
+                doc.setFont("Helvetica");
+                generatePdfContent(doc, race);
+            }
+        }
+        
+        function generatePdfContent(doc, race) {
+             const head = [['المركز', 'الرقم', 'السرية', 'الرتبة', 'الاسم', 'الوقت', 'الزمن المحقق', 'ملاحظات']];
+             const body = [];
+             const finishers = race.participants.filter(p => p.finishTime !== null).sort((a, b) => a.finishTime - b.finishTime);
+             finishers.forEach((finisher, index) => {
+                 let rankDisplay = String(index + 1);
+                 if (index === 0) rankDisplay = '🥇 ' + rankDisplay;
+                 if (index === 1) rankDisplay = '🥈 ' + rankDisplay;
+                 if (index === 2) rankDisplay = '🥉 ' + rankDisplay;
+                 if (finisher.timeCategory === 'كاسر زمن') rankDisplay = '⭐ ' + rankDisplay;
+                 body.push([
+                    rankDisplay, finisher.bib, finisher.company, finisher.rank, finisher.name,
+                    formatResultTime(finisher.finishTime), finisher.timeCategory, finisher.notes || '-'
+                 ]);
+             });
+             doc.autoTable({
+                 head: head, body: body, startY: 20,
+                 styles: { font: 'Amiri', halign: 'center', cellPadding: 3 },
+                 headStyles: { fillColor: [26, 35, 126], textColor: 255, fontStyle: 'bold' },
+                 didDrawPage: data => doc.text(`نتائج: ${race.name}`, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' })
+             });
+             doc.save(`${race.name}_results.pdf`);
+        }
+
+        // --- Utility Functions ---
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+
+        function showNotification(message, type = 'success') {
+            const popup = notificationPopup;
+            popup.textContent = message;
+            popup.className = `notification show ${type}`;
+            clearTimeout(notificationTimeout);
+            notificationTimeout = setTimeout(() => {
+                popup.className = `notification ${type}`;
+            }, 3000);
+        }
+        
+        function showConfirmation(message, onConfirm) {
+            modalTitle.textContent = 'تأكيد';
+            modalContent.innerHTML = `<p>${message}</p>`;
+            modalActions.innerHTML = `
+                <button class="btn btn-add">تأكيد</button>
+                <button class="btn btn-action">إلغاء</button>
+            `;
+            customModal.style.display = 'flex';
+            modalActions.querySelector('.btn-add').onclick = () => {
+                onConfirm();
+                customModal.style.display = 'none';
+            };
+            modalActions.querySelector('.btn-action').onclick = () => {
+                customModal.style.display = 'none';
+            };
+        }
+
+        function showPrompt(title, defaultValue, onSave) {
+            modalTitle.textContent = title;
+            modalContent.innerHTML = `<input type="text" id="modalInput" value="${defaultValue}">`;
+            modalActions.innerHTML = `
+                <button class="btn btn-add">حفظ</button>
+                <button class="btn btn-action">إلغاء</button>
+            `;
+            customModal.style.display = 'flex';
+            const input = document.getElementById('modalInput');
+            input.focus();
+            modalActions.querySelector('.btn-add').onclick = () => {
+                onSave(input.value);
+                customModal.style.display = 'none';
+            };
+            modalActions.querySelector('.btn-action').onclick = () => {
+                customModal.style.display = 'none';
+            };
+        }
+
+        function formatResultTime(ms) {
+            if (ms === null) return '-';
+            const d = new Date(ms);
+            return `${String(d.getUTCMinutes()).padStart(2,'0')}:${String(d.getUTCSeconds()).padStart(2,'0')}`;
+        }
+        function formatTimeWithMillis(ms) {
+            const d = new Date(ms);
+            return `${String(d.getUTCMinutes()).padStart(2,'0')}:${String(d.getUTCSeconds()).padStart(2,'0')}.${String(d.getUTCMilliseconds()).padStart(3,'0')}`;
+        }
+    </script>
+</body>
+</html>
