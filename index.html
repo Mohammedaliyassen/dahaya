@@ -804,15 +804,21 @@
                  if (index === 2) rankDisplay = '🥉 ' + rankDisplay;
                  if (finisher.timeCategory === 'كاسر زمن') rankDisplay = '⭐ ' + rankDisplay;
                  body.push([
-                    rankDisplay, finisher.bib, finisher.company, finisher.rank, finisher.name,
-                    formatResultTime(finisher.finishTime), finisher.timeCategory, finisher.notes || '-'
+                    finisher.notes || '-',
+                    finisher.timeCategory,
+                    formatResultTime(finisher.finishTime),
+                    finisher.name,
+                    finisher.rank,
+                    finisher.company,
+                    String(finisher.bib),
+                    rankDisplay
                  ]);
              });
              doc.autoTable({
                  head: head, body: body, startY: 20,
                  styles: { font: 'Amiri', halign: 'center', cellPadding: 3 },
                  headStyles: { fillColor: [26, 35, 126], textColor: 255, fontStyle: 'bold' },
-                 didDrawPage: data => doc.text(`نتائج: ${race.name}`, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' })
+                 didDrawPage: data => doc.text(`${race.name}`.split('').reverse().join(''), doc.internal.pageSize.getWidth() / 2, 15, { align: 'center', lang:'ar' })
              });
              doc.save(`${race.name}_results.pdf`);
         }
