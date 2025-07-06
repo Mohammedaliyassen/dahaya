@@ -815,7 +815,7 @@
                  ]);
              });
              doc.autoTable({
-                 head: head, body: body, startY: 20,
+                 head: head.split('').reverse().join(''), body: body, startY: 20,
                  styles: { font: 'Amiri', halign: 'center', cellPadding: 3 },
                  headStyles: { fillColor: [26, 35, 126], textColor: 255, fontStyle: 'bold' },
                  didDrawPage: data => doc.text(`${race.name}`.split('').reverse().join(''), doc.internal.pageSize.getWidth() / 2, 15, { align: 'center', lang:'ar' })
