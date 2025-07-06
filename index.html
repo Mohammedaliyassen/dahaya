@@ -794,7 +794,8 @@
         }
         
         function generatePdfContent(doc, race) {
-             const head = [['المركز', 'الرقم', 'السرية', 'الرتبة', 'الاسم', 'الوقت', 'الزمن المحقق', 'ملاحظات']];
+             const head = [['ملاحظات', 'الزمن المحقق', 'الوقت', 'الاسم', 'الرتبة', 'السرية', 'الرقم', 'المركز']];
+                           
              const body = [];
              const finishers = race.participants.filter(p => p.finishTime !== null).sort((a, b) => a.finishTime - b.finishTime);
              finishers.forEach((finisher, index) => {
@@ -815,7 +816,7 @@
                  ]);
              });
              doc.autoTable({
-                 head: head.split('').reverse().join(''), body: body, startY: 20,
+                 head: head, body: body, startY: 20,
                  styles: { font: 'Amiri', halign: 'center', cellPadding: 3 },
                  headStyles: { fillColor: [26, 35, 126], textColor: 255, fontStyle: 'bold' },
                  didDrawPage: data => doc.text(`${race.name}`.split('').reverse().join(''), doc.internal.pageSize.getWidth() / 2, 15, { align: 'center', lang:'ar' })
